@@ -9,3 +9,9 @@
 .edit-post-post-link__link {
 	word-wrap: break-word;
 }
+
+/* rtl:begin:ignore */
+.edit-post-post-link__preview-link-container {
+	direction: ltr;
+}
+/* rtl:end:ignore */
