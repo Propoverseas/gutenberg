@@ -875,6 +875,7 @@ one or more replacement blocks.
 
  * clientIds: Block client ID(s) to replace.
  * blocks: Replacement block(s).
+ * ignoreAllowedBlocksValidation: If true the blocks will replaced even if the replacement was not allowed e.g: because of allowed blocks restrictions.
 
 ### replaceBlock
 
@@ -885,6 +886,7 @@ with one or more replacement blocks.
 
  * clientId: Block client ID to replace.
  * block: Replacement block(s).
+ * ignoreAllowedBlocksValidation: If true the block will be moved even if the move was not allowed e.g: because of allowed blocks restrictions.
 
 ### moveBlockToPosition
 
@@ -897,6 +899,7 @@ to a new index.
  * fromRootClientId: Root client ID source.
  * toRootClientId: Root client ID destination.
  * index: The index to move the block into.
+ * ignoreAllowedBlocksValidation: If true the block will be moved even if the move was not allowed e.g: because of allowed blocks restrictions.
 
 ### insertBlock
 
@@ -909,6 +912,7 @@ inserted, optionally at a specific index respective a root block list.
  * index: Index at which block should be inserted.
  * rootClientId: Optional root client ID of block list on which to insert.
  * updateSelection: If true block selection will be updated. If false, block selection will not change. Defaults to true.
+ * ignoreAllowedBlocksValidation: If true the block will be inserted even if the insertion was not allowed e.g: because of allowed blocks restrictions.
 
 ### insertBlocks
 
@@ -921,6 +925,7 @@ be inserted, optionally at a specific index respective a root block list.
  * index: Index at which block should be inserted.
  * rootClientId: Optional root client ID of block list on which to insert.
  * updateSelection: If true block selection will be updated.  If false, block selection will not change. Defaults to true.
+ * ignoreAllowedBlocksValidation: If true the block will be inserted even if the insertion was not allowed e.g: because of allowed blocks restrictions.
 
 ### showInsertionPoint
 

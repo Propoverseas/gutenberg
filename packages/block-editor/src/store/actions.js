@@ -1,7 +1,7 @@
 /**
  * External dependencies
  */
-import { castArray } from 'lodash';
+import { castArray, first } from 'lodash';
 
 /**
  * WordPress dependencies
@@ -12,6 +12,26 @@ import { getDefaultBlockName, createBlock } from '@wordpress/blocks';
  * Internal dependencies
  */
 import { select } from './controls';
+
+const buildSelectors = ( store ) => ( ...selectors ) => {
+	const buildSelector = ( selector ) => {
+		return ( ...args ) => (
+			select(
+				store,
+				selector,
+				...args,
+			)
+		);
+	};
+	if ( selectors.length > 1 ) {
+		return selectors.map( buildSelector );
+	}
+	if ( selectors.length === 1 ) {
+		return buildSelector( selectors[ 0 ] );
+	}
+};
+
+const buildCoreEditorSelectors = buildSelectors( 'core/editor' );
 
 /**
  * Returns an action object used in signalling that blocks state should be
@@ -199,31 +219,54 @@ export function toggleSelection( isSelectionEnabled = true ) {
  * Returns an action object signalling that a blocks should be replaced with
  * one or more replacement blocks.
  *
- * @param {(string|string[])} clientIds Block client ID(s) to replace.
- * @param {(Object|Object[])} blocks    Replacement block(s).
- *
- * @return {Object} Action object.
+ * @param {(string|string[])} clientIds                     Block client ID(s) to replace.
+ * @param {(Object|Object[])} blocks                        Replacement block(s).
+ * @param {?boolean}          ignoreAllowedBlocksValidation If true the blocks will replaced even if the replacement was not allowed e.g: because of allowed blocks restrictions.
  */
-export function replaceBlocks( clientIds, blocks ) {
-	return {
+export function* replaceBlocks( clientIds, blocks, ignoreAllowedBlocksValidation = false ) {
+	const createAction = () => ( {
 		type: 'REPLACE_BLOCKS',
 		clientIds: castArray( clientIds ),
 		blocks: castArray( blocks ),
 		time: Date.now(),
-	};
+	} );
+	if ( ignoreAllowedBlocksValidation ) {
+		yield createAction();
+		return;
+	}
+	const [
+		canInsertBlockType,
+		getBlockName,
+		getBlockRootClientId,
+	] =	buildCoreEditorSelectors( 'canInsertBlockType', 'getBlockName', 'getBlockRootClientId' );
+	const rootClientId = getBlockRootClientId( first( clientIds ) );
+	// Replace is valid if the new blocks can be inserted in the root block
+	// or if we had a block of the same type in the position of the block being replaced.
+	for ( let index = 0; index < blocks.length; index++ ) {
+		const block = blocks[ index ];
+		if ( ! ( yield canInsertBlockType( block.name, rootClientId ) ) ) {
+			const clientIdToReplace = clientIds[ index ];
+			const nameOfBlockToReplace = clientIdToReplace && ( yield getBlockName( clientIdToReplace ) );
+			if ( ! nameOfBlockToReplace || nameOfBlockToReplace !== block.name ) {
+				return;
+			}
+		}
+	}
+	yield createAction();
 }
 
 /**
  * Returns an action object signalling that a single block should be replaced
  * with one or more replacement blocks.
  *
- * @param {(string|string[])} clientId Block client ID to replace.
- * @param {(Object|Object[])} block    Replacement block(s).
+ * @param {(string|string[])} clientId                      Block client ID to replace.
+ * @param {(Object|Object[])} block                         Replacement block(s).
+ * @param {?boolean}          ignoreAllowedBlocksValidation If true the block will be moved even if the move was not allowed e.g: because of allowed blocks restrictions.
  *
  * @return {Object} Action object.
  */
-export function replaceBlock( clientId, block ) {
-	return replaceBlocks( clientId, block );
+export function replaceBlock( clientId, block, ignoreAllowedBlocksValidation = false ) {
+	return replaceBlocks( clientId, block, ignoreAllowedBlocksValidation );
 }
 
 /**
@@ -251,58 +294,114 @@ export const moveBlocksUp = createOnMove( 'MOVE_BLOCKS_UP' );
  * Returns an action object signalling that an indexed block should be moved
  * to a new index.
  *
- * @param  {?string} clientId         The client ID of the block.
- * @param  {?string} fromRootClientId Root client ID source.
- * @param  {?string} toRootClientId   Root client ID destination.
- * @param  {number}  index            The index to move the block into.
+ * @param  {?string} clientId                      The client ID of the block.
+ * @param  {?string} fromRootClientId              Root client ID source.
+ * @param  {?string} toRootClientId                Root client ID destination.
+ * @param  {number}  index                         The index to move the block into.
+ * @param {?boolean} ignoreAllowedBlocksValidation If true the block will be moved even if the move was not allowed e.g: because of allowed blocks restrictions.
  *
  * @return {Object} Action object.
  */
-export function moveBlockToPosition( clientId, fromRootClientId, toRootClientId, index ) {
-	return {
+export function* moveBlockToPosition( clientId, fromRootClientId, toRootClientId, index, ignoreAllowedBlocksValidation = false ) {
+	const createAction = () => ( {
 		type: 'MOVE_BLOCK_TO_POSITION',
 		fromRootClientId,
 		toRootClientId,
 		clientId,
 		index,
-	};
+	} );
+	if ( ignoreAllowedBlocksValidation ) {
+		return createAction();
+	}
+	const [
+		canInsertBlockType,
+		getBlockName,
+		getTemplateLock,
+	] = buildCoreEditorSelectors( 'canInsertBlockType', 'getBlockName', 'getTemplateLock' );
+
+	const blockName = yield getBlockName( clientId );
+
+	// If locking is equal to all on the original clientId (fromRootClientId) it is not possible to move the block to any other position.
+	// In the other cases (locking !== all ), if moving inside the same block the move is always possible
+	// if moving to other parent block, the move is possible if we can insert a block of the same type inside the new parent block.
+	if (
+		( yield getTemplateLock( fromRootClientId ) ) !== 'all' &&
+		( fromRootClientId === toRootClientId || ( yield canInsertBlockType( blockName, toRootClientId ) ) )
+	) {
+		yield createAction();
+	}
 }
 
 /**
  * Returns an action object used in signalling that a single block should be
  * inserted, optionally at a specific index respective a root block list.
  *
- * @param {Object}  block            Block object to insert.
- * @param {?number} index            Index at which block should be inserted.
- * @param {?string} rootClientId     Optional root client ID of block list on which to insert.
- * @param {?boolean} updateSelection If true block selection will be updated. If false, block selection will not change. Defaults to true.
+ * @param {Object}   block                         Block object to insert.
+ * @param {?number}  index                         Index at which block should be inserted.
+ * @param {?string}  rootClientId                  Optional root client ID of block list on which to insert.
+ * @param {?boolean} updateSelection               If true block selection will be updated. If false, block selection will not change. Defaults to true.
+ * @param {?boolean} ignoreAllowedBlocksValidation If true the block will be inserted even if the insertion was not allowed e.g: because of allowed blocks restrictions.
  *
  * @return {Object} Action object.
  */
-export function insertBlock( block, index, rootClientId, updateSelection = true ) {
-	return insertBlocks( [ block ], index, rootClientId, updateSelection );
+export function insertBlock(
+	block,
+	index,
+	rootClientId,
+	updateSelection = true,
+	ignoreAllowedBlocksValidation = false
+) {
+	return insertBlocks(
+		[ block ],
+		index,
+		rootClientId,
+		updateSelection,
+		ignoreAllowedBlocksValidation
+	);
 }
 
 /**
  * Returns an action object used in signalling that an array of blocks should
  * be inserted, optionally at a specific index respective a root block list.
  *
- * @param {Object[]} blocks          Block objects to insert.
- * @param {?number}  index           Index at which block should be inserted.
- * @param {?string}  rootClientId    Optional root client ID of block list on which to insert.
- * @param {?boolean} updateSelection If true block selection will be updated.  If false, block selection will not change. Defaults to true.
- *
- * @return {Object} Action object.
+ * @param {Object[]} blocks                        Block objects to insert.
+ * @param {?number}  index                         Index at which block should be inserted.
+ * @param {?string}  rootClientId                  Optional root client ID of block list on which to insert.
+ * @param {?boolean} updateSelection               If true block selection will be updated.  If false, block selection will not change. Defaults to true.
+ * @param {?boolean} ignoreAllowedBlocksValidation If true the block will be inserted even if the insertion was not allowed e.g: because of allowed blocks restrictions.
  */
-export function insertBlocks( blocks, index, rootClientId, updateSelection = true ) {
-	return {
-		type: 'INSERT_BLOCKS',
-		blocks: castArray( blocks ),
-		index,
-		rootClientId,
-		time: Date.now(),
-		updateSelection,
-	};
+export function* insertBlocks(
+	blocks,
+	index,
+	rootClientId,
+	updateSelection = true,
+	ignoreAllowedBlocksValidation = false
+) {
+	let allowedBlocks;
+	if ( ignoreAllowedBlocksValidation ) {
+		allowedBlocks = blocks;
+	} else {
+		allowedBlocks = [];
+		const canInsertBlockType = buildCoreEditorSelectors( 'canInsertBlockType' );
+		for ( const block of castArray( blocks ) ) {
+			if ( block ) {
+				const isValid = yield canInsertBlockType( block.name, rootClientId );
+				if ( isValid ) {
+					allowedBlocks.push( block );
+				}
+			}
+		}
+	}
+	if ( allowedBlocks.length ) {
+		yield {
+			type: 'INSERT_BLOCKS',
+			blocks: allowedBlocks,
+			index,
+			rootClientId,
+			time: Date.now(),
+			updateSelection,
+		};
+	}
 }
 
 /**
