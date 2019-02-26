@@ -5,7 +5,7 @@ import { Path, SVG, TextControl, Popover, IconButton, PositionedAtSelection } fr
 import { __ } from '@wordpress/i18n';
 import { Component } from '@wordpress/element';
 import { insertObject } from '@wordpress/rich-text';
-import { MediaUpload, RichTextInserterItem, MediaUploadCheck } from '@wordpress/editor';
+import { MediaUpload, RichTextInserterItem, MediaUploadCheck } from '@wordpress/block-editor';
 import { LEFT, RIGHT, UP, DOWN, BACKSPACE, ENTER } from '@wordpress/keycodes';
 
 const ALLOWED_MEDIA_TYPES = [ 'image' ];

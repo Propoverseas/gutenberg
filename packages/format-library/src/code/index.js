@@ -3,7 +3,7 @@
  */
 import { __ } from '@wordpress/i18n';
 import { toggleFormat } from '@wordpress/rich-text';
-import { RichTextShortcut } from '@wordpress/editor';
+import { RichTextShortcut } from '@wordpress/block-editor';
 
 const name = 'core/code';
 
