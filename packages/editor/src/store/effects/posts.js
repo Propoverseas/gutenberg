@@ -59,7 +59,7 @@ export const requestPostUpdate = async ( action, store ) => {
 	let edits = getPostEdits( state );
 	const isAutosave = !! action.options.isAutosave;
 	if ( isAutosave ) {
-		edits = pick( edits, [ 'title', 'content', 'excerpt' ] );
+		edits = pick( edits, [ 'title', 'content', 'excerpt', 'slug' ] );
 	}
 
 	// New posts (with auto-draft status) must be explicitly assigned draft
