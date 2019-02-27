@@ -28,6 +28,7 @@ import { createRegistrySelector } from '@wordpress/data';
  */
 import { PREFERENCES_DEFAULTS } from './defaults';
 import { EDIT_MERGE_PROPERTIES } from './constants';
+import { cleanForSlug } from '../utils/url';
 
 /***
  * Module constants
@@ -939,6 +940,44 @@ export function getPermalink( state ) {
 	}
 
 	return prefix;
+}
+
+/**
+ * Returns the slug for the post being edited, preferring a manually edited
+ * value if one exists. It falls back to an auto-generated value returned from
+ * an autosave, then to a sanitized version of the current post title, and
+ * finally to the post ID.
+ *
+ * @param {Object} state Editor state.
+ *
+ * @return {string} The current slug to be displayed in the editor
+ */
+export function getEditedPostSlug( state ) {
+	const currentSlug = getEditedPostAttribute( state, 'slug' );
+
+	if ( currentSlug ) {
+		return currentSlug;
+	}
+
+	// If there is no saved or edited slug and the title has not been edited,
+	// then there may be a php generated slug available on the current_post, or
+	// on an autosave if one exists. This will be more accurate than generating
+	// it from the post title because it accounts for slug conflicts.
+	// The isSaving check is required because the title edit is cleared before the
+	// generated_slug value is assigned to the current_post from the response.
+	const generatedSlug = getEditedPostAttribute( state, 'generated_slug' );
+	if ( ! isCurrentPostPublished( state ) &&
+		getCurrentPostAttribute( state, 'title' ) === getEditedPostAttribute( state, 'title' ) &&
+		generatedSlug !== 'auto-draft' &&
+		! isSavingPost( state ) ) {
+		if ( hasAutosave( state ) ) {
+			return getAutosaveAttribute( state, 'generated_slug' );
+		}
+
+		return generatedSlug;
+	}
+
+	return cleanForSlug( getEditedPostAttribute( state, 'title' ) ) || getCurrentPostId( state );
 }
 
 /**
