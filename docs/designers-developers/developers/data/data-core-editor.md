@@ -581,6 +581,21 @@ Returns the permalink for the post.
 
 The permalink, or null if the post is not viewable.
 
+### getEditedPostSlug
+
+Returns the slug for the post being edited, preferring a manually edited
+value if one exists. It falls back to an auto-generated value returned from
+an autosave, then to a sanitized version of the current post title, and
+finally to the post ID.
+
+*Parameters*
+
+ * state: Editor state.
+
+*Returns*
+
+The current slug to be displayed in the editor
+
 ### getPermalinkParts
 
 Returns the permalink for a post, split into it's three parts: the prefix,
