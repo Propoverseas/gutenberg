@@ -68,6 +68,7 @@ const {
 	isPermalinkEditable,
 	getPermalink,
 	getPermalinkParts,
+	getEditedPostSlug,
 	isPostSavingLocked,
 	canUserUseUnfilteredHTML,
 } = selectors;
@@ -2707,6 +2708,145 @@ describe( 'selectors', () => {
 			};
 
 			expect( getPermalinkParts( state ) ).toBeNull();
+		} );
+	} );
+
+	describe( 'getEditedPostSlug', () => {
+		it( 'should return the current post’s slug if one exists and has not been edited', () => {
+			const state = {
+				currentPost: {
+					slug: 'custom-slug',
+					generated_slug: 'sample-post',
+					title: 'Sample Post',
+				},
+				editor: {
+					present: {
+						edits: {},
+					},
+				},
+			};
+
+			expect( getEditedPostSlug( state ) ).toBe( 'custom-slug' );
+		} );
+
+		it( 'should return the edited post slug if it has been edited', () => {
+			const state = {
+				currentPost: {
+					slug: 'custom-slug',
+					generated_slug: 'sample-post',
+					title: 'Sample Post',
+				},
+				editor: {
+					present: {
+						edits: {
+							slug: 'edited-slug',
+						},
+					},
+				},
+			};
+
+			expect( getEditedPostSlug( state ) ).toBe( 'edited-slug' );
+		} );
+
+		it( 'should return the generated slug if no slug has been saved or edited', () => {
+			const state = {
+				currentPost: {
+					generated_slug: 'generated-slug',
+					title: 'Sample Post',
+				},
+				editor: {
+					present: {
+						edits: {},
+					},
+				},
+				saving: {
+					requesting: false,
+				},
+			};
+
+			expect( getEditedPostSlug( state ) ).toBe( 'generated-slug' );
+		} );
+
+		it( 'should return the generated slug from an autosave before a regular save', () => {
+			const state = {
+				currentPost: {
+					generated_slug: 'generated-slug',
+					title: 'Sample Post',
+				},
+				editor: {
+					present: {
+						edits: {},
+					},
+				},
+				autosave: {
+					generated_slug: 'generated-slug-2',
+				},
+				saving: {
+					requesting: false,
+				},
+			};
+
+			expect( getEditedPostSlug( state ) ).toBe( 'generated-slug-2' );
+		} );
+
+		it( 'should return the cleaned, edited title as the slug if it has been edited and no slug exists', () => {
+			const state = {
+				currentPost: {
+					generated_slug: 'generated-slug',
+					title: 'Sample Post',
+				},
+				editor: {
+					present: {
+						edits: {
+							title: 'Edited Title',
+						},
+					},
+				},
+				saving: {
+					requesting: false,
+				},
+			};
+
+			expect( getEditedPostSlug( state ) ).toBe( 'edited-title' );
+		} );
+
+		it( 'should return the cleaned title as the slug if no slug or generated slug exists', () => {
+			const state = {
+				currentPost: {
+					title: 'Sample Post',
+					generated_slug: 'auto-draft',
+				},
+				editor: {
+					present: {
+						edits: {},
+					},
+				},
+				saving: {
+					requesting: false,
+				},
+			};
+
+			expect( getEditedPostSlug( state ) ).toBe( 'sample-post' );
+		} );
+
+		it( 'should return the post ID if no slug, generated slug, or post title exists', () => {
+			const state = {
+				currentPost: {
+					id: 123,
+					title: '',
+					generated_slug: 'auto-draft',
+				},
+				editor: {
+					present: {
+						edits: {},
+					},
+				},
+				saving: {
+					requesting: false,
+				},
+			};
+
+			expect( getEditedPostSlug( state ) ).toBe( 123 );
 		} );
 	} );
 
