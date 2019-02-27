@@ -761,16 +761,18 @@ export function autosave( state = null, action ) {
 	switch ( action.type ) {
 		case 'RESET_AUTOSAVE':
 			const { post } = action;
-			const [ title, excerpt, content ] = [
+			const [ title, excerpt, content, generatedSlug ] = [
 				'title',
 				'excerpt',
 				'content',
+				'generated_slug',
 			].map( ( field ) => getPostRawValue( post[ field ] ) );
 
 			return {
 				title,
 				excerpt,
 				content,
+				generated_slug: generatedSlug,
 			};
 	}
 
